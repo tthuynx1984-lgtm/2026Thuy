@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="vi"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>MapDGN – Bản đồ địa chính</title><link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#161615"><link rel="icon" href="icon-192.png"><link rel="apple-touch-icon" href="icon-180.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
+<style>
+:root{--bg:#f4f4f2;--fg:#1c1c1a;--bar:#fff;--bd:#d6d6d0;--ac:#0b6bcb;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#161615;--fg:#eeeeea;--bar:#232321;--bd:#3a3a36;--ac:#5aa9ff}}
+:root[data-theme="dark"]{--bg:#161615;--fg:#eeeeea;--bar:#232321;--bd:#3a3a36;--ac:#5aa9ff}
+html,body{height:100%;margin:0}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{background:var(--bg);color:var(--fg);font:14px system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;display:flex;flex-direction:column;overflow:hidden}
+.bar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:6px 8px;background:var(--bar);border-bottom:1px solid var(--bd)}
+button,.btn,select,input[type=search]{font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:6px 10px;min-height:34px;box-sizing:border-box}
+.btn.p{background:var(--ac);border-color:var(--ac);color:#fff;cursor:pointer}
+input[type=search]{flex:1;min-width:110px}
+#w{position:relative;flex:1;min-height:0;background:#000}
+canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;display:block}
+#hint{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;color:#aaa;padding:20px;pointer-events:none;line-height:1.5}
+#st{padding:4px 8px;font-size:12px;background:var(--bar);border-top:1px solid var(--bd);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#lv,#cl,#ll{position:absolute;right:6px;top:6px;max-height:70%;width:220px;overflow:auto;background:var(--bar);border:1px solid var(--bd);border-radius:10px;padding:8px;display:none}
+#lv label{display:flex;gap:6px;align-items:center;padding:3px 0}#lv i{width:12px;height:12px;border:1px solid #888;display:inline-block}
+#pp{position:absolute;left:6px;right:6px;bottom:6px;background:var(--bar);border:1px solid var(--bd);border-radius:10px;padding:8px;display:none;gap:6px;flex-wrap:wrap;align-items:center}
+#pp a,#pp button{text-decoration:none;color:#fff;background:var(--ac);border-color:var(--ac)}#pp button{background:var(--bg);color:var(--fg);border-color:var(--bd)}
+#pp span{flex:1 1 100%;font-size:12px}.on{outline:2px solid var(--ac)}#cm{width:64px}
+#cl{width:min(340px,92%);font-size:12px;z-index:2}#cl input{width:100%}#cl button{margin:4px 4px 0 0}#cl p{margin:4px 0}
+#gmap{position:absolute;inset:0;display:none;pointer-events:none;z-index:0}canvas{z-index:1}#pp,#lv,#cl,#ll{z-index:2}#ll{width:min(340px,92%);font-size:13px}#ll .lr{display:flex;gap:4px;align-items:center;margin:4px 0}#ll .lr span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#gps.on{outline:2px solid var(--ac)}
+#lcb{position:absolute;left:6px;top:6px;z-index:2;background:rgba(0,0,0,.7);color:#fff;border-radius:14px;padding:5px 11px;font-size:12px;display:none}#lc{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:9;padding:16px}#lc>div{background:var(--bar);border:1px solid var(--bd);border-radius:12px;padding:14px;width:min(420px,100%);font-size:14px}#lc textarea{width:100%;height:84px;box-sizing:border-box;margin:8px 0;font:12px monospace;color:var(--fg);background:var(--bg);border:1px solid var(--bd);border-radius:8px}#lc p{margin:4px 0}#lcm{color:#d33;min-height:1.2em}
+</style></head><body>
+<div class="bar"><label class="btn p">Mở<input id="f" type="file" hidden></label><button id="lib">Thư viện</button><input id="q" type="search" placeholder="Tìm số thửa / chữ"><button id="fit" title="Vừa khung">⤢</button><button id="gps" title="Vị trí của tôi">◎</button><button id="sn" title="Bắt điểm: chạm là ghim đúng đầu đoạn thẳng gần nhất">🧲 Bắt điểm</button><button id="mn" title="Cài đặt">⚙</button></div>
+<div id="adv" class="bar" style="display:none"><select id="md" hidden></select><button id="sat" class="on">Vệ tinh Esri</button><button id="gg" title="Nền ảnh vệ tinh Google Maps (cần khóa API)">Nền Google</button><button id="pn" class="on">📍 Ghim</button><button id="lk">🔑 Kích hoạt</button><button id="lb">Lớp</button><button id="cb">Hiệu chỉnh</button><button id="a2" title="Chạm điểm trên bản vẽ, rồi chạm đúng điểm đó trên ảnh">Căn 2 chạm</button><button id="au" title="Tự khớp ranh với đường nét ảnh vệ tinh">Tự khớp ảnh</button><label title="Kinh tuyến trục VN-2000 (độ)">KTT <input id="cm" type="number" step="0.25" value="105"></label><select id="dt" title="Chuyển VN-2000 sang WGS84"><option value="0">Không dịch gốc</option><option value="1" selected>QĐ 05/2007 (7 tham số)</option></select><select id="mz" title="Mức ảnh vệ tinh tối đa"><option value="0">Ảnh: tự động</option><option value="18">Tối đa mức 18</option><option value="17">Tối đa mức 17</option><option value="16">Tối đa mức 16</option></select><select id="k0" title="Hệ số k0"><option value="0.9999">k0 0,9999 (3°)</option><option value="0.9996">k0 0,9996 (6°)</option></select></div>
+<div id="w"><div id="gmap"></div><canvas id="cv"></canvas><div id="hint">Bấm “Mở” để chọn file .dgn (MicroStation V8)<br>Bản đồ được lưu trong “Thư viện” trên máy này và tự mở lại lần sau.<br>Dữ liệu chỉ xử lý trên máy, không tải lên đâu cả.</div>
+<div id="lv"></div><div id="ll"></div><div id="lcb">🔑 Bản dùng thử (khóa Chỉ đường) · bấm để kích hoạt</div><div id="cl"><b>Hiệu chỉnh bằng điểm chuẩn</b><p>1) Ghim đúng một điểm rõ nét (góc nhà, ngã ba đường). 2) Bấm “Mở Google Maps”, giữ lâu đúng điểm đó trên ảnh vệ tinh Google, chạm tọa độ để sao chép. 3) Dán vào ô dưới rồi bấm Thêm. Càng nhiều điểm (nên ≥3, rải đều) càng chính xác.</p><input id="cc" placeholder="Dán: 21.43961, 105.54112"><button id="ca">Thêm điểm chuẩn từ ghim</button><button id="cx">Xóa hiệu chỉnh</button><p id="cs"></p></div><div id="pp"><span id="pt"></span><a id="gm" target="_blank" rel="noopener">Mở Google Maps</a><a id="gd" target="_blank" rel="noopener">Chỉ đường</a><button id="cp">Sao chép</button><button id="px">Xóa ghim</button></div></div>
+<div id="lc"><div><b>Kích hoạt MapDGN</b><p id="lct"></p><textarea id="lcin" placeholder="Dán mã kích hoạt (bắt đầu bằng MAPDGN-…)"></textarea><p id="lcm"></p><p id="lcc" style="font-weight:600">📞 Nguyễn Xuân Thủy: <a href="tel:0972839747" style="color:inherit">0972839747</a></p><button id="lcgo" class="btn p">Kích hoạt</button> <button id="lcx">Để sau</button></div></div>
+<div id="st">Chưa mở file</div>
+<script>
+async function inflate(u){const ds=new DecompressionStream('deflate'),w=ds.writable.getWriter();w.write(u);w.close();return new Uint8Array(await new Response(ds.readable).arrayBuffer());}
+const cat=a=>{let n=0;for(const x of a)n+=x.length;const o=new Uint8Array(n);let p=0;for(const x of a){o.set(x,p);p+=x.length}return o};
+function readOLE(buf){
+ if(![0xD0,0xCF,0x11,0xE0].every((b,i)=>buf[i]===b))return null;
+ const dv=new DataView(buf.buffer,buf.byteOffset,buf.byteLength),u32=(v,o)=>v.getUint32(o,true);
+ const ss=1<<dv.getUint16(30,true),mss=1<<dv.getUint16(32,true),nfat=u32(dv,44),dirS=u32(dv,48),cut=u32(dv,56),mfS=u32(dv,60);
+ let dif=u32(dv,68),nd=u32(dv,72);
+ const sec=n=>buf.subarray(512+n*ss,512+(n+1)*ss),V=b=>new DataView(b.buffer,b.byteOffset,b.byteLength);
+ let fs=[];for(let i=0;i<109;i++)fs.push(u32(dv,76+i*4));
+ while(dif<0xFFFFFFFA&&nd-->0){const v=V(sec(dif)),n=ss/4;for(let i=0;i<n-1;i++)fs.push(u32(v,i*4));dif=u32(v,(n-1)*4)}
+ fs=fs.filter(x=>x<0xFFFFFFFA).slice(0,nfat);
+ const fat=[];for(const f of fs){const v=V(sec(f));for(let i=0;i<ss/4;i++)fat.push(u32(v,i*4))}
+ const chain=n=>{const p=[],s=new Set();while(n<0xFFFFFFFA&&!s.has(n)){s.add(n);p.push(sec(n));n=fat[n]}return cat(p)};
+ const dd=chain(dirS),dV=V(dd),E=[];
+ for(let i=0;i<dd.length/128;i++){const o=i*128,nl=dV.getUint16(o+64,true);
+  E.push({name:new TextDecoder('utf-16le').decode(dd.subarray(o,o+Math.max(nl-2,0))),type:dd[o+66],l:u32(dV,o+68),r:u32(dV,o+72),c:u32(dV,o+76),start:u32(dV,o+116),size:u32(dV,o+120)})}
+ const ms=E[0].start<0xFFFFFFFA?chain(E[0].start).subarray(0,E[0].size):new Uint8Array(0);
+ let mf=[];if(mfS<0xFFFFFFFA){const b=chain(mfS),v=V(b);for(let i=0;i<b.length/4;i++)mf.push(u32(v,i*4))}
+ const read=e=>{if(e.size<cut){const p=[];let n=e.start;while(n<0xFFFFFFFA){p.push(ms.subarray(n*mss,(n+1)*mss));n=mf[n]}return cat(p).subarray(0,e.size)}return chain(e.start).subarray(0,e.size)};
+ const files={};
+ const walk=(i,path)=>{const go=j=>{if(j===0xFFFFFFFF)return;go(E[j].l);const k=E[j],p=path+'/'+k.name;if(k.type===2)files[p]=k;else if(k.type===1)walk(j,p);go(E[j].r)};go(E[i].c)};
+ walk(0,'');
+ return{files,read};
+}
+async function dec(u){if(u[0]===0x78)return inflate(u);if(u.length>17&&u[16]===0x78)return inflate(u.subarray(16));return null}
+const TC='ĂÂÊÔƠƯĐăâêôơưđ'; // 0xA1..0xAE
+const TL={0xB5:'à',0xB6:'ả',0xB7:'ã',0xB8:'á',0xB9:'ạ',0xBB:'ằ',0xBC:'ẳ',0xBD:'ẵ',0xBE:'ắ',0xC6:'ặ',0xC7:'ầ',0xC8:'ẩ',0xC9:'ẫ',0xCA:'ấ',0xCB:'ậ',0xCC:'è',0xCE:'ẻ',0xCF:'ẽ',0xD0:'é',0xD1:'ẹ',0xD2:'ề',0xD3:'ể',0xD4:'ễ',0xD5:'ế',0xD6:'ệ',0xD7:'ì',0xD8:'ỉ',0xDC:'ĩ',0xDD:'í',0xDE:'ị',0xDF:'ò',0xE1:'ỏ',0xE2:'õ',0xE3:'ó',0xE4:'ọ',0xE5:'ồ',0xE6:'ổ',0xE7:'ỗ',0xE8:'ố',0xE9:'ộ',0xEA:'ờ',0xEB:'ở',0xEC:'ỡ',0xED:'ớ',0xEE:'ợ',0xEF:'ù',0xF1:'ủ',0xF2:'ũ',0xF3:'ú',0xF4:'ụ',0xF5:'ừ',0xF6:'ử',0xF7:'ữ',0xF8:'ứ',0xF9:'ự',0xFA:'ỳ',0xFB:'ỷ',0xFC:'ỹ',0xFD:'ý',0xFE:'ỵ'};
+function tcvn(b){let s='';for(const c of b){s+=c>=0xA1&&c<=0xAE?TC[c-0xA1]:TL[c]||String.fromCharCode(c)}return s}
+function dtxt(sb,hi){if(sb[0]===255&&sb[1]===254){const r=sb.subarray(2);let u=r.length%2===0;if(u)for(let i=1;i<r.length;i+=2)if(r[i]>31){u=false;break}return u?new TextDecoder('utf-16le').decode(r):tcvn(r.subarray(2))}return hi?tcvn(sb):new TextDecoder('latin1').decode(sb)}
+async function parseDGN(buf){
+ const o=readOLE(buf);if(!o)throw new Error('Không phải DGN V8 (OLE). File DGN V7 chưa được hỗ trợ.');
+ const F=Object.keys(o.files),models={};
+ for(const p of F){const m=p.match(/^\/Dgn-Md\/(#[^/]+)\/Dgn\^G\/\$(\d+)$/);if(m)(models[m[1]]??=[]).push([+m[2],p])}
+ // palette
+ let pal=null;const pat=[255,255,255,0,0,255,0,255,0,255,0,0];
+ for(const p of F){if(p.includes('Dgn^G')||p.includes('Dgn^Ix'))continue;const d=await dec(o.read(o.files[p])).catch(()=>null);if(!d)continue;
+  outer:for(let i=0;i<d.length-768;i++){for(let k=0;k<12;k++)if(d[i+k]!==pat[k])continue outer;pal=d.slice(i,i+768);break}if(pal)break}
+ const out={models:{},pal,stats:{}};
+ for(const id in models){
+  let org=[0,0];const mh=F.find(p=>p==='/Dgn-Md/'+id+'/Dgn~Mh');
+  if(mh){const d=await dec(o.read(o.files[mh]));if(d){const v=new DataView(d.buffer,d.byteOffset,d.byteLength);
+   for(let i=0;i+16<=d.length;i+=4){const a=v.getFloat64(i,true),b=v.getFloat64(i+8,true);
+    if(Math.abs(a)>=1e6&&Math.abs(b)>=1e6&&a%1000===0&&b%1000===0&&Math.abs(a)<1e13&&Math.abs(b)<1e13){org=[a,b];break}}}}
+  const prims=[],un={};
+  for(const [,p] of models[id].sort((a,b)=>a[0]-b[0])){
+   const d=await dec(o.read(o.files[p]));if(!d||d.length<20)continue;const v=new DataView(d.buffer,d.byteOffset,d.byteLength);
+   for(let pos=4;pos+104<=d.length;){
+    const fl=v.getUint32(pos,true),sz=v.getUint32(pos+4,true)*2,ao=v.getUint32(pos+8,true)*2;if(!sz||pos+sz>d.length)break;
+    const t=fl&0xff,lv=v.getUint32(pos+12,true),st=v.getInt32(pos+44,true),w=v.getUint32(pos+48,true),c=v.getUint32(pos+52,true);
+    const f=o=>v.getFloat64(pos+o,true),b={t,lv,c:c>255?0:c,w,st};
+    if(t===3){const nd=(ao-104)/16;if(nd===2)prims.push({...b,k:'L',p:[f(104),f(112),f(120),f(128)]});else un[t]=(un[t]||0)+1}
+    else if(t===4||t===6){const n=v.getUint32(pos+104,true),nd=(ao-112)/(n*8);if(nd===2&&n>1){const p=[];for(let i=0;i<n;i++)p.push(f(112+i*16),f(120+i*16));prims.push({...b,k:t===6?'S':'L',p})}else un[t]=(un[t]||0)+1}
+    else if(t===15){if(ao-104===40)prims.push({...b,k:'E',e:[f(104),f(112),f(120),f(128),f(136)]});else un[t]=(un[t]||0)+1}
+    else if(t===17){const n=v.getUint32(pos+108,true)>>>16,sb=d.subarray(pos+170,pos+170+n);let hi=false;for(const x of sb)if(x>=0xA1)hi=true;
+     prims.push({...b,k:'T',x:f(152),y:f(160),h:f(136),w:f(128),r:f(144),s:dtxt(sb,hi),font:v.getUint16(pos+108,true)})}
+    else if(t!==2&&t!==7)un[t]=(un[t]||0)+1;
+    pos+=sz+4}}
+  out.models[id]={prims,org,un};
+ }
+ return out;
+}
+
+
+const WA=6378137,WF=1/298.257223563,E2=WF*(2-WF),EP=E2/(1-E2),RAD=Math.PI/180;
+const MER=p=>WA*((1-E2/4-3*E2*E2/64-5*E2**3/256)*p-(3*E2/8+3*E2*E2/32+45*E2**3/1024)*Math.sin(2*p)+(15*E2*E2/256+45*E2**3/1024)*Math.sin(4*p)-35*E2**3/3072*Math.sin(6*p));
+function tmFwd(lat,lon,l0,k0){const p=lat*RAD,N=WA/Math.sqrt(1-E2*Math.sin(p)**2),T=Math.tan(p)**2,C=EP*Math.cos(p)**2,A=(lon-l0)*RAD*Math.cos(p);
+ return[500000+k0*N*(A+(1-T+C)*A**3/6+(5-18*T+T*T+72*C-58*EP)*A**5/120),k0*(MER(p)+N*Math.tan(p)*(A*A/2+(5-T+9*C+4*C*C)*A**4/24+(61-58*T+T*T+600*C-330*EP)*A**6/720))]}
+function tmInv(E,Nn,l0,k0){const x=E-500000,mu=Nn/k0/(WA*(1-E2/4-3*E2*E2/64-5*E2**3/256)),s=Math.sqrt(1-E2),e1=(1-s)/(1+s);
+ const f1=mu+(3*e1/2-27*e1**3/32)*Math.sin(2*mu)+(21*e1*e1/16-55*e1**4/32)*Math.sin(4*mu)+151*e1**3/96*Math.sin(6*mu)+1097*e1**4/512*Math.sin(8*mu);
+ const C=EP*Math.cos(f1)**2,T=Math.tan(f1)**2,N1=WA/Math.sqrt(1-E2*Math.sin(f1)**2),R1=WA*(1-E2)/(1-E2*Math.sin(f1)**2)**1.5,D=x/(N1*k0);
+ const lat=f1-N1*Math.tan(f1)/R1*(D*D/2-(5+3*T+10*C-4*C*C-9*EP)*D**4/24+(61+90*T+298*C+45*T*T-252*EP-3*C*C)*D**6/720);
+ const lon=l0*RAD+(D-(1+2*T+C)*D**3/6+(5-2*C+28*T-3*C*C+8*EP+24*T*T)*D**5/120)/Math.cos(f1);return[lat/RAD,lon/RAD]}
+
+
+const $=i=>document.getElementById(i),cv=$('cv'),ctx=cv.getContext('2d');
+let TAINT=false,gp=null,gw=null,gpf=0,PL=[],ggOn=false,gm=null,alMode=0,alPin=null,AU=[0,0],NT=0,NL=0,fname="",CAL={a:[1,0],b:[0,0],pts:[],rms:0},pin=null,satOn=true,pinMode=true,TL2=new Map(),R=null,M=null,pal=null,V={cx:0,cy:0,s:1},vis=new Set(),hits=[],hi=0,mark=null,raf=0,d=1;
+const DEF=['#fff','#00f','#0f0','#f00','#ff0','#f0f','#f80','#0ff'],DASH=[[],[3,4],[10,6],[12,4,3,4],[14,5],[2,4],[6,3,1,3],[16,8]];
+const col=c=>!c?'#fff':pal?`rgb(${pal[c*3]},${pal[c*3+1]},${pal[c*3+2]})`:DEF[c&7];
+const st=t=>$('st').textContent=t;
+const HP={t:[-191.90441429,-39.30318279,-111.45032835],r:[-0.00928836,0.01975479,-0.00427372].map(v=>v*Math.PI/648000),s:0.252906278e-6};
+function geo2ecef(la,lo,h){const p=la*RAD,l=lo*RAD,N=WA/Math.sqrt(1-E2*Math.sin(p)**2);return[(N+h)*Math.cos(p)*Math.cos(l),(N+h)*Math.cos(p)*Math.sin(l),(N*(1-E2)+h)*Math.sin(p)]}
+function ecef2geo(X,Y,Z){const lo=Math.atan2(Y,X),q=Math.hypot(X,Y);let p=Math.atan2(Z,q*(1-E2)),h=0;for(let i=0;i<6;i++){const N=WA/Math.sqrt(1-E2*Math.sin(p)**2);h=q/Math.cos(p)-N;p=Math.atan2(Z,q*(1-E2*N/(N+h)))}return[p/RAD,lo/RAD,h]}
+function helm(X,Y,Z){const[rx,ry,rz]=HP.r,k=1+HP.s;return[HP.t[0]+k*(X+rz*Y-ry*Z),HP.t[1]+k*(-rz*X+Y+rx*Z),HP.t[2]+k*(ry*X-rx*Y+Z)]}
+function vn2wgs(la,lo,h=0){const c=geo2ecef(la,lo,h),w=helm(...c);return ecef2geo(...w).slice(0,2)}
+function wgs2vn(la,lo,h=0){const w=geo2ecef(la,lo,h);let c=[w[0]-HP.t[0],w[1]-HP.t[1],w[2]-HP.t[2]];for(let i=0;i<4;i++){const f=helm(...c);c=[c[0]+w[0]-f[0],c[1]+w[1]-f[1],c[2]+w[2]-f[2]]}return ecef2geo(...c).slice(0,2)}
+
+
+const cmv=()=>+$('cm').value||105,k0v=()=>+$('k0').value;
+const T=(x,y)=>[CAL.a[0]*x-CAL.a[1]*y+CAL.b[0],CAL.a[0]*y+CAL.a[1]*x+CAL.b[1]];
+const Ti=(x,y)=>{const m=CAL.a[0]**2+CAL.a[1]**2,r=x-CAL.b[0],i=y-CAL.b[1];return[(r*CAL.a[0]+i*CAL.a[1])/m,(i*CAL.a[0]-r*CAL.a[1])/m]};
+const dtv=()=>$('dt').value==='1';
+const toLL0=(x,y)=>{const l=tmInv((x-M.org[0])/1000,(y-M.org[1])/1000,cmv(),k0v());return dtv()?vn2wgs(l[0],l[1]):l};
+const fromLL0=(la,lo)=>{const l=dtv()?wgs2vn(la,lo):[la,lo],e=tmFwd(l[0],l[1],cmv(),k0v());return[e[0]*1000+M.org[0],e[1]*1000+M.org[1]]};
+const toLL=(x,y)=>{const t=T(x,y);return toLL0(t[0],t[1])};
+function fitCal(){const P=CAL.pts,n=P.length;if(!n||!M){CAL.a=[1,0];CAL.b=[AU[0],AU[1]];CAL.rms=0;return}
+ const Z=P.map(p=>[p.x,p.y]),W=P.map(p=>fromLL0(p.la,p.lo)),mn=A=>[A.reduce((s,z)=>s+z[0],0)/n,A.reduce((s,z)=>s+z[1],0)/n],mz=mn(Z),mw=mn(W);let a=[1,0];
+ if(n>1){let nr=0,ni=0,dn=0;for(let i=0;i<n;i++){const zr=Z[i][0]-mz[0],zi=Z[i][1]-mz[1],wr=W[i][0]-mw[0],wi=W[i][1]-mw[1];nr+=zr*wr+zi*wi;ni+=zr*wi-zi*wr;dn+=zr*zr+zi*zi}if(dn)a=[nr/dn,ni/dn]}
+ CAL.a=a;CAL.b=[mw[0]-(a[0]*mz[0]-a[1]*mz[1])+AU[0],mw[1]-(a[0]*mz[1]+a[1]*mz[0])+AU[1]];
+ let s=0;for(let i=0;i<n;i++){const t=T(Z[i][0],Z[i][1]);s+=(t[0]-W[i][0])**2+(t[1]-W[i][1])**2}CAL.rms=Math.sqrt(s/n)/1000}
+function calUI(){const n=CAL.pts.length;const au=AU[0]||AU[1]?` Tự khớp ảnh: ΔE=${(AU[0]/1000).toFixed(1)} m, ΔN=${(AU[1]/1000).toFixed(1)} m.`:'';if(!n){$('cs').textContent='Chưa có điểm chuẩn.'+au;return}
+ const c=T(V.cx,V.cy),sc=(Math.hypot(CAL.a[0],CAL.a[1])-1)*1e6,ang=Math.atan2(CAL.a[1],CAL.a[0])*206265;
+ $('cs').innerHTML=`${n} điểm · dịch ΔE=${((c[0]-V.cx)/1000).toFixed(2)} m, ΔN=${((c[1]-V.cy)/1000).toFixed(2)} m`+(n>1?` · xoay ${ang.toFixed(1)}″ · tỉ lệ ${sc.toFixed(0)} ppm · <b>sai số dư RMS ${CAL.rms.toFixed(2)} m</b>`+(Math.abs(sc)>300||Math.abs(ang)>120?' ⚠ bất thường, kiểm tra lại điểm chuẩn':''):' · cần ≥3 điểm để biết độ chính xác')}
+function saveCal(){try{localStorage.setItem('dgncal:'+fname,JSON.stringify(CAL.pts));localStorage.setItem('dgnau:'+fname,JSON.stringify(AU))}catch(e){}}
+function loadCal(){try{CAL.pts=JSON.parse(localStorage.getItem('dgncal:'+fname)||'[]')}catch(e){CAL.pts=[]}try{AU=JSON.parse(localStorage.getItem('dgnau:'+fname)||'[0,0]')}catch(e){AU=[0,0]}fitCal();calUI()}
+const fromLL=(la,lo)=>{const u=fromLL0(la,lo);return Ti(u[0],u[1])};
+const t2l=(tx,ty,n)=>[Math.atan(Math.sinh(Math.PI*(1-2*ty/n)))/RAD,tx/n*360-180];
+const zmx=()=>+$('mz').value||(TAINT?18:19);
+function blankTile(t){try{const c=document.createElement('canvas');c.width=c.height=16;const x=c.getContext('2d');x.drawImage(t,0,0,16,16);const d=x.getImageData(0,0,16,16).data;let g=0,mn=255,mx=0;for(let i=0;i<d.length;i+=4){if(Math.abs(d[i]-d[i+1])<7&&Math.abs(d[i+1]-d[i+2])<7&&d[i]>165&&d[i]<240)g++;if(d[i]<mn)mn=d[i];if(d[i]>mx)mx=d[i]}return g>190&&mx-mn<70}catch(e){TAINT=true;return false}}
+function tile(z,x,y){const k=z+'/'+x+'/'+y;let t=TL2.get(k);if(!t){if(TL2.size>500)TL2.clear();const u=`https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${y}/${x}`;t=new Image();t.crossOrigin='anonymous';t.onload=()=>{t.__b=blankTile(t);redraw()};t.onerror=()=>{if(t.crossOrigin){t.crossOrigin=null;t.removeAttribute('crossorigin');t.src=u+'?nc'}};t.src=u;TL2.set(k,t)}return t}
+function tiles(X,Y,x0,x1,y0,y1,cx2=ctx){NT=0;NL=0;const c=toLL((x0+x1)/2,(y0+y1)/2),z=Math.max(3,Math.min(zmx(),Math.round(Math.log2(156543.03*Math.cos(c[0]*RAD)*V.s*1000)))),n=2**z;
+ const cs=[[x0,y0],[x1,y0],[x0,y1],[x1,y1]].map(p=>toLL(p[0],p[1])),tx=cs.map(l=>(l[1]+180)/360*n),ty=cs.map(l=>(1-Math.log(Math.tan(l[0]*RAD)+1/Math.cos(l[0]*RAD))/Math.PI)/2*n);
+ const a=Math.floor(Math.min(...tx)),b=Math.floor(Math.max(...tx)),e=Math.floor(Math.min(...ty)),f=Math.floor(Math.max(...ty));if((b-a+1)*(f-e+1)>90)return;
+ const P=(i,j)=>{const l=t2l(i,j,n),u=fromLL(l[0],l[1]);return[X(u[0]),Y(u[1])]};
+ for(let i=a;i<=b;i++)for(let j=e;j<=f;j++){let t=tile(z,i,j),lz=0,ci=i,cj=j;NT++;if(!t.complete||!t.naturalWidth)continue;NL++;
+  while(t.__b&&lz<4&&z-lz>3){lz++;ci>>=1;cj>>=1;t=tile(z-lz,ci,cj);if(!t.complete||!t.naturalWidth)break}
+  if(!t.complete||!t.naturalWidth||(t.__b&&lz>0))continue;
+  const A=P(i,j),B=P(i+1,j),C=P(i,j+1),k=t.naturalWidth/2**lz;
+  cx2.setTransform((B[0]-A[0])/k,(B[1]-A[1])/k,(C[0]-A[0])/k,(C[1]-A[1])/k,A[0],A[1]);cx2.drawImage(t,(i-(ci<<lz))*k,(j-(cj<<lz))*k,k,k,0,0,k,k)}
+ cx2.setTransform(1,0,0,1,0,0)}
+function setPin(p){pin=p;const pp=$('pp');if(!p){pp.style.display='none';draw();return}const l=toLL(p.x,p.y),q=l[0].toFixed(6)+','+l[1].toFixed(6);
+ const dc=p.sn?3:2;
+ $('pt').textContent=(p.sn?'🧲 Đã bắt điểm  ·  ':'')+(nearP(p)?'Thửa gần nhất: '+nearP(p)+'  ·  ':'')+`Vĩ độ, kinh độ: ${l[0].toFixed(6)}, ${l[1].toFixed(6)}  ·  VN-2000: X=${((p.y-M.org[1])/1000).toFixed(dc)} Y=${((p.x-M.org[0])/1000).toFixed(dc)}`;
+ $('gm').href='https://www.google.com/maps/search/?api=1&query='+q;$('gd').href='https://www.google.com/maps/dir/?api=1&travelmode=driving&destination='+q;pp.style.display='flex';draw()}
+$('sat').onclick=e=>{satOn=!satOn;e.target.classList.toggle('on',satOn);draw()};
+$('pn').onclick=e=>{pinMode=!pinMode;e.target.classList.toggle('on',pinMode);st(pinMode?'Chạm vào bản đồ để đặt ghim':'Đã tắt chế độ ghim')};
+$('px').onclick=()=>setPin(null);$('cp').onclick=()=>navigator.clipboard&&navigator.clipboard.writeText($('pt').textContent.match(/-?\d+\.\d{6}, -?\d+\.\d{6}/)[0]);
+$('cm').oninput=$('k0').onchange=$('dt').onchange=()=>{fitCal();calUI();if(pin)setPin(pin);draw()};
+function bbl(a,W,H,r){const t=new Float32Array(a.length),o=new Float32Array(a.length),k=2*r+1,mx=(v,m)=>v<0?0:v>m?m:v;
+ for(let y=0;y<H;y++){let s=0;const b=y*W;for(let x=-r;x<=r;x++)s+=a[b+mx(x,W-1)];for(let x=0;x<W;x++){t[b+x]=s/k;s+=a[b+mx(x+r+1,W-1)]-a[b+mx(x-r,W-1)]}}
+ for(let x=0;x<W;x++){let s=0;for(let y=-r;y<=r;y++)s+=t[mx(y,H-1)*W+x];for(let y=0;y<H;y++){o[y*W+x]=s/k;s+=t[mx(y+r+1,H-1)*W+x]-t[mx(y-r,H-1)*W+x]}}return o}
+async function autoAlign(){if(!M||!satOn){st('Bật “Vệ tinh” và mở file DGN trước');return}
+ st('Đang khớp ranh với ảnh vệ tinh …');await new Promise(r=>setTimeout(r,30));
+ const W=cv.width,H=cv.height,{cx,cy,s}=V,X=x=>(x-cx)*s+W/2,Y=y=>H/2-(y-cy)*s,x0=cx-W/2/s,x1=cx+W/2/s,y0=cy-H/2/s,y1=cy+H/2/s,wk=s*1000;
+ const oc=document.createElement('canvas');oc.width=W;oc.height=H;const o=oc.getContext('2d');o.fillStyle='#000';o.fillRect(0,0,W,H);tiles(X,Y,x0,x1,y0,y1,o);
+ if(!NT||NL<NT){st('Ảnh vệ tinh chưa tải xong (hoặc đang tắt). Đợi vài giây rồi bấm lại.');return}
+ if(wk<.25){st('Hãy phóng to vào khu vực có thửa (ít nhất ~0,3 điểm ảnh/mét) rồi bấm lại.');return}
+ let D;try{D=o.getImageData(0,0,W,H).data}catch(e){st('Trình duyệt chặn đọc ảnh vệ tinh (CORS). Hãy dùng “Hiệu chỉnh” bằng điểm chuẩn.');return}
+ const gr=new Float32Array(W*H);for(let i=0;i<W*H;i++)gr[i]=.299*D[4*i]+.587*D[4*i+1]+.114*D[4*i+2];
+ const gs=bbl(gr,W,H,1),G=new Float32Array(W*H);
+ for(let y=1;y<H-1;y++)for(let x=1;x<W-1;x++){const i=y*W+x;G[i]=Math.hypot(gs[i-W+1]+2*gs[i+1]+gs[i+W+1]-gs[i-W-1]-2*gs[i-1]-gs[i+W-1],gs[i+W-1]+2*gs[i+W]+gs[i+W+1]-gs[i-W-1]-2*gs[i-W]-gs[i-W+1])}
+ let pts=[];const stp=Math.max(2,wk);
+ for(const p of M.prims){if(p.k==='T'||p.k==='E'||!vis.has(p.lv))continue;const q=p.b;if(q[2]<x0||q[0]>x1||q[3]<y0||q[1]>y1)continue;const a=p.p,n=a.length,m=p.k==='S'?n:n-2;
+  for(let i=0;i<m;i+=2){const j=(i+2)%n,ax=X(a[i]),ay=Y(a[i+1]),bx=X(a[j]),by=Y(a[j+1]),c=Math.max(1,Math.floor(Math.hypot(bx-ax,by-ay)/stp));for(let k=0;k<c;k++)pts.push(ax+(bx-ax)*k/c,ay+(by-ay)*k/c)}}
+ const th=Math.ceil(pts.length/2/8000);if(th>1){const t=[];for(let i=0;i<pts.length;i+=2*th)t.push(pts[i],pts[i+1]);pts=t}
+ if(pts.length<400){st('Quá ít đường ranh trong khung nhìn để khớp.');return}
+ const sc=(A,dx,dy)=>{let u=0,c=0;for(let i=0;i<pts.length;i+=2){const x=Math.round(pts[i]+dx),y=Math.round(pts[i+1]+dy);if(x>=0&&x<W&&y>=0&&y<H){u+=A[y*W+x];c++}}return c>pts.length/4?u/c:0};
+ const srch=(A,R,sp,ox,oy)=>{let b=-1,bx=ox,by=oy;const all=[];for(let dy=-R;dy<=R;dy+=sp)for(let dx=-R;dx<=R;dx+=sp){const v=sc(A,ox+dx,oy+dy);all.push(v);if(v>b){b=v;bx=ox+dx;by=oy+dy}}return{b,bx,by,all}};
+ const r1=srch(bbl(G,W,H,Math.max(1,Math.round(6*wk))),Math.round(150*wk),Math.max(1,Math.round(5*wk)),0,0);
+ const r2=srch(bbl(G,W,H,Math.max(1,Math.round(1.5*wk))),Math.round(7*wk),Math.max(1,Math.round(wk)),r1.bx,r1.by);
+ const r3=srch(bbl(G,W,H,Math.max(1,Math.round(.6*wk))),Math.round(1.5*wk),Math.max(1,Math.round(.4*wk)),r2.bx,r2.by);
+ const mu=r1.all.reduce((a,b)=>a+b,0)/r1.all.length,sd=Math.sqrt(r1.all.reduce((a,b)=>a+(b-mu)**2,0)/r1.all.length)||1,z=(r1.b-mu)/sd,dE=r3.bx/wk,dN=-r3.by/wk;
+ if(z<3){st(`Không đủ đặc trưng để khớp tin cậy (z=${z.toFixed(1)}). Hãy dùng điểm chuẩn.`);return}
+ AU[0]+=r3.bx/s;AU[1]+=-r3.by/s;fitCal();saveCal();calUI();if(pin)setPin(pin);draw();
+ st(`Đã khớp: dịch ranh ΔE=${dE.toFixed(1)} m, ΔN=${dN.toFixed(1)} m · độ tin cậy z=${z.toFixed(1)} (≥5 là tốt). Bấm lại để tinh chỉnh.`)}
+$('au').onclick=autoAlign;
+$('gg').onclick=e=>{if(ggOn){ggOn=false;e.target.classList.remove('on');$('gmap').style.display='none';draw();return}
+ ggLoad(()=>{if(!gm){gm=new google.maps.Map($('gmap'),{mapId:'DEMO_MAP_ID',mapTypeId:'satellite',disableDefaultUI:true,gestureHandling:'none',keyboardShortcuts:false,isFractionalZoomEnabled:true,center:{lat:21.4,lng:105.5},zoom:17});
+  gm.addListener('idle',()=>{const z=gm.getZoom();if(ggOn&&gm.__w&&Math.abs(z-gm.__w)>.05&&M){const c=toLL(V.cx,V.cy);V.s=2**z/(156543.03*Math.cos(c[0]*RAD)*1000)*d;draw()}})}
+  ggOn=true;satOn=false;e.target.classList.add('on');const sb=$('sat');sb&&sb.classList.remove('on');$('gmap').style.display='block';draw()})};
+$('a2').onclick=e=>{alMode=alMode?0:1;alPin=null;e.target.classList.toggle('on',alMode>0);st(alMode?'Bước 1: chạm một điểm rõ nét TRÊN BẢN VẼ (góc thửa, góc nhà)':'Đã tắt căn 2 chạm')};
+$('cb').onclick=()=>{const l=$('cl');l.style.display=l.style.display==='block'?'none':'block';calUI()};
+$('ca').onclick=()=>{if(!pin){$('cs').textContent='Hãy ghim một điểm trước.';return}const m=($('cc').value.match(/-?\d+(?:\.\d+)?/g)||[]).map(Number);if(m.length<2){$('cs').textContent='Chưa đọc được tọa độ (dạng: 21.43961, 105.54112).';return}
+ let[la,lo]=m;if(la>90||la>lo)[la,lo]=[lo,la];if(la<8||la>24||lo<102||lo>110){$('cs').textContent='Tọa độ nằm ngoài lãnh thổ Việt Nam, kiểm tra lại.';return}
+ const t=T(pin.x,pin.y),ti=Ti(t[0],t[1]);AU=[0,0];CAL.pts.push({x:pin.x,y:pin.y,la,lo});fitCal();saveCal();$('cc').value='';calUI();setPin(pin);draw()};
+$('cx').onclick=()=>{AU=[0,0];CAL.pts=[];fitCal();saveCal();calUI();if(pin)setPin(pin);draw()};
+function scrLL(px,py){if(ggOn&&gm){const c=toLL(V.cx,V.cy),z=gm.__w,Wd=256*2**z,cwx=(c[1]+180)/360*Wd,cwy=(1-Math.log(Math.tan(c[0]*RAD)+1/Math.cos(c[0]*RAD))/Math.PI)/2*Wd,tx=cwx+(px-cv.width/2)/d,ty=cwy+(py-cv.height/2)/d;
+  return[Math.atan(Math.sinh(Math.PI*(1-2*ty/Wd)))/RAD,tx/Wd*360-180]}return toLL((px-cv.width/2)/V.s+V.cx,V.cy+(cv.height/2-py)/V.s)}
+/*SNAP-BEGIN*/
+// Bắt điểm: chỉ mục k-d tree trên MỌI đầu mút/đỉnh của đoạn thẳng, polyline, shape (tọa độ gốc DGN, double – không làm tròn)
+let snapOn=false,SN=null,snapPrev=null;const SNAP_PX=26;
+function kdSel(ix,K,lo,hi,k){while(hi>lo){const pv=K[ix[(lo+hi)>>1]];let i=lo,j=hi;
+ while(i<=j){while(K[ix[i]]<pv)i++;while(K[ix[j]]>pv)j--;if(i<=j){const t=ix[i];ix[i]=ix[j];ix[j]=t;i++;j--}}
+ if(k<=j)hi=j;else if(k>=i)lo=i;else return}}
+function buildSnap(prims){let n=0;for(const p of prims){if(p.k==='T'||p.k==='E')continue;n+=p.p.length>>1}
+ const X=new Float64Array(n),Y=new Float64Array(n),L=new Int32Array(n),ix=new Uint32Array(n);let m=0;
+ for(const p of prims){if(p.k==='T'||p.k==='E')continue;const a=p.p;for(let i=0;i+1<a.length;i+=2){X[m]=a[i];Y[m]=a[i+1];L[m]=p.lv;ix[m]=m;m++}}
+ const bd=(lo,hi,dp)=>{if(hi-lo<2)return;const mid=(lo+hi)>>1;kdSel(ix,dp&1?Y:X,lo,hi-1,mid);bd(lo,mid,dp+1);bd(mid+1,hi,dp+1)};
+ bd(0,n,0);return{ix,X,Y,L,n}}
+function snapFind(wx,wy,r){if(!SN)return null;const{ix,X,Y,L}=SN;let bd=r*r,bi=-1;
+ const q=(lo,hi,dp)=>{if(lo>=hi)return;const m=(lo+hi)>>1,i=ix[m],dx=X[i]-wx,dy=Y[i]-wy;
+  if(vis.has(L[i])){const dd=dx*dx+dy*dy;if(dd<bd||(dd===bd&&bi<0)){bd=dd;bi=i}}
+  const df=dp&1?dy:dx;
+  if(df>0){q(lo,m,dp+1);if(df*df<=bd)q(m+1,hi,dp+1)}else{q(m+1,hi,dp+1);if(df*df<=bd)q(lo,m,dp+1)}};
+ q(0,SN.n,0);return bi<0?null:{i:bi,x:X[bi],y:Y[bi],lv:L[bi],d:Math.sqrt(bd)}}
+function snapMark(x,y,c,dash){const{cx,cy,s}=V,px=(x-cx)*s+cv.width/2,py=cv.height/2-(y-cy)*s,r=9*d;
+ ctx.save();ctx.setLineDash(dash?[4*d,3*d]:[]);ctx.lineWidth=2.5*d;ctx.strokeStyle='#000';ctx.strokeRect(px-r,py-r,2*r,2*r);ctx.lineWidth=1.5*d;ctx.strokeStyle=c;ctx.strokeRect(px-r,py-r,2*r,2*r);
+ ctx.setLineDash([]);ctx.beginPath();ctx.moveTo(px-r*1.6,py);ctx.lineTo(px+r*1.6,py);ctx.moveTo(px,py-r*1.6);ctx.lineTo(px,py+r*1.6);ctx.stroke();ctx.restore()}
+$('sn').onclick=async e=>{if(!M){st('Hãy mở bản đồ trước');return}snapOn=!snapOn;e.currentTarget.classList.toggle('on',snapOn);snapPrev=null;
+ if(!snapOn){st('Đã tắt bắt điểm');draw();return}
+ if(!SN){st('Đang dựng chỉ mục điểm …');await new Promise(r=>setTimeout(r,30));SN=buildSnap(M.prims)}
+ st(`Bắt điểm BẬT · ${SN.n} đầu đoạn/đỉnh · chạm gần một đầu đoạn thẳng để ghim đúng điểm đó`);draw()};
+/*SNAP-END*/
+function tapAt(px,py){let p={x:(px-cv.width/2)/V.s+V.cx,y:V.cy+(cv.height/2-py)/V.s};
+ if(snapOn&&alMode!==2){const h=snapFind(p.x,p.y,SNAP_PX*d/V.s);
+  if(!h){st('Không có đầu đoạn thẳng nào trong vòng chạm — phóng to hoặc chạm gần điểm hơn');return}
+  p={x:h.x,y:h.y,sn:1,lv:h.lv}}
+ if(!alMode){setPin(p);if(p.sn)st(`Đã bắt điểm (lớp ${p.lv}): X=${((p.y-M.org[1])/1000).toFixed(3)}  Y=${((p.x-M.org[0])/1000).toFixed(3)}`);return}
+ if(alMode===1){alPin=p;pin=p;alMode=2;draw();st('Bước 2: chạm đúng điểm đó trên ẢNH VỆ TINH (phóng to để chính xác)');return}
+ const l=scrLL(px,py);CAL.pts.push({x:alPin.x,y:alPin.y,la:l[0],lo:l[1]});AU=[0,0];fitCal();saveCal();calUI();const n=CAL.pts.length;setPin(alPin);alPin=null;alMode=1;
+ st(`Đã thêm điểm chuẩn ${n}`+(n>1?` · sai số dư RMS ${CAL.rms.toFixed(2)} m`:' (cần ≥3 điểm, rải đều)')+' — chạm điểm tiếp theo trên bản vẽ')}
+function ggLoad(cb){let k=null;try{k=localStorage.getItem('gmkey')}catch(e){}k=k||prompt('Dán khóa API Google Maps (đã bật Maps JavaScript API):');if(!k)return;try{localStorage.setItem('gmkey',k)}catch(e){}
+ if(window.google&&google.maps){cb();return}window.__gmReady=cb;const s=document.createElement('script');s.src='https://maps.googleapis.com/maps/api/js?key='+encodeURIComponent(k)+'&v=weekly&callback=__gmReady';s.onerror=()=>st('Không tải được Google Maps: kiểm tra mạng và khóa API');document.head.appendChild(s)}
+window.gm_authFailure=()=>{st('Google từ chối khóa API (kiểm tra khóa, đã bật Maps JavaScript API và thanh toán).');try{localStorage.removeItem('gmkey')}catch(e){}};
+function buildParcels(){const L=M.prims.filter(p=>p.k==='T'&&(p.lv===13||p.lv===19||p.lv===3)&&p.h<2600&&p.s.length<=12&&!/Tờ|Tổng|Thành/.test(p.s)),par=L.map((_,i)=>i),fd=i=>par[i]===i?i:par[i]=fd(par[i]),RR=6000,cell=new Map(),gt=k=>{let v=cell.get(k);if(!v){v=[];cell.set(k,v)}return v};
+ L.forEach((p,i)=>gt(Math.floor(p.x/RR)+','+Math.floor(p.y/RR)).push(i));
+ L.forEach((p,i)=>{const cx=Math.floor(p.x/RR),cy=Math.floor(p.y/RR);for(let a=-1;a<=1;a++)for(let b=-1;b<=1;b++)for(const j of cell.get((cx+a)+','+(cy+b))||[])if(j>i&&Math.hypot(L[j].x-p.x,L[j].y-p.y)<RR)par[fd(j)]=fd(i)});
+ const g=new Map();L.forEach((p,i)=>{const k=fd(i);if(!g.has(k))g.set(k,[]);g.get(k).push(p)});
+ PL=[...g.values()].map(a=>{a.sort((p,q)=>q.y-p.y||p.x-q.x);return{n:a.map(p=>p.s).join(' | '),x:a.reduce((s,p)=>s+p.x,0)/a.length,y:a.reduce((s,p)=>s+p.y,0)/a.length}})}
+const nearP=p=>{let b=null,bd=25000;for(const c of PL){const q=Math.hypot(c.x-p.x,c.y-p.y);if(q<bd){bd=q;b=c}}return b?b.n:''};
+const esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const idb=()=>new Promise((ok,no)=>{const r=indexedDB.open('mapdgn',1);r.onupgradeneeded=()=>r.result.createObjectStore('f');r.onsuccess=()=>ok(r.result);r.onerror=()=>no(r.error)});
+const dbx=async(m,fn)=>{const db=await idb();return new Promise((ok,no)=>{const t=db.transaction('f',m),q=fn(t.objectStore('f'));t.oncomplete=()=>ok(q&&q.result);t.onerror=()=>no(t.error)})};
+const dbPut=(k,v)=>dbx('readwrite',s=>s.put(v,k)),dbGet=k=>dbx('readonly',s=>s.get(k)),dbDel=k=>dbx('readwrite',s=>s.delete(k)),dbKeys=()=>dbx('readonly',s=>s.getAllKeys());
+const LIC_PUB={"kty":"EC","crv":"P-256","x":"WARx_rcX7ky4qi-xyqWQvvs65g_lgR288CwmztzZeh8","y":"pSDVWBtZKJSCHjUtDpKekNZ0GfRfV6viFk4oB-WZgIk"},REVOKED=[],TRIAL=1000000;
+let licOK=false,licId='';
+const b64u=s=>{s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';const b=atob(s),u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u};
+const lcExtract=t=>{const m=(t||'').replace(/\s+/g,'').match(/MAPDGN-[A-Za-z0-9_-]+\.[A-Za-z0-9_-]{86}/);return m?m[0]:''};
+async function verifyCode(code){try{if(!code)return null;const[p,s]=code.slice(7).split('.');const id=new TextDecoder().decode(b64u(p));if(REVOKED.includes(id))return null;
+ const key=await crypto.subtle.importKey('jwk',LIC_PUB,{name:'ECDSA',namedCurve:'P-256'},false,['verify']);
+ return await crypto.subtle.verify({name:'ECDSA',hash:'SHA-256'},key,b64u(s),new TextEncoder().encode('MAPDGN|'+id))?id:null}catch(e){return null}}
+function updLic(){const g=$('gd');if(g)g.textContent=licOK?'Chỉ đường':'🔒 Chỉ đường';$('lcb').style.display=licOK?'none':'block';$('lk').textContent=licOK?'🔑 Đã kích hoạt ('+licId+')':'🔑 Kích hoạt'}
+function openLic(msg){$('lct').textContent=licOK?'Đã kích hoạt bản quyền, mã '+licId+'. Cảm ơn bạn đã ủng hộ.':'Bản dùng thử chỉ mở được file bản đồ dưới 1 MB. Nhập mã kích hoạt để mở file lớn và dùng chức năng Chỉ đường theo Google Map.';$('lcm').textContent=msg||'';$('lcc').style.display=licOK?'none':'block';$('lc').style.display='flex'}
+async function checkLic(){let c='';try{const m=lcExtract(decodeURIComponent(location.hash));if(m){localStorage.setItem('mapdgn_lic',m);history.replaceState(null,'',location.pathname+location.search)}c=localStorage.getItem('mapdgn_lic')||''}catch(e){}
+ if(c&&window.crypto&&crypto.subtle){const id=await verifyCode(c);if(id){licOK=true;licId=id}else{try{localStorage.removeItem('mapdgn_lic')}catch(e){}}}updLic()}
+let licReady=checkLic();
+$('gd').addEventListener('click',e=>{if(!licOK){e.preventDefault();e.stopImmediatePropagation();openLic('Chức năng Chỉ đường theo Google Map chỉ có ở bản đã kích hoạt. Liên hệ Nguyễn Xuân Thủy – ĐT 0972839747 để lấy mã kích hoạt đầy đủ tính năng.')}},true);
+$('lcb').onclick=()=>openLic();$('lk').onclick=()=>openLic();$('lcx').onclick=()=>{$('lc').style.display='none'};
+$('lcgo').onclick=async()=>{if(!(window.crypto&&crypto.subtle)){$('lcm').textContent='Cần mở ứng dụng bằng địa chỉ https:// để kích hoạt.';return}
+ const c=lcExtract($('lcin').value);if(!c){$('lcm').textContent='Chưa thấy mã hợp lệ (bắt đầu bằng MAPDGN-).';return}
+ const id=await verifyCode(c);if(!id){$('lcm').textContent='Mã không đúng hoặc đã bị thu hồi.';return}
+ try{localStorage.setItem('mapdgn_lic',c)}catch(e){}licOK=true;licId=id;updLic();$('lcin').value='';openLic();st('Đã kích hoạt, mã '+id)};
+function size(){const r=$('w').getBoundingClientRect();d=devicePixelRatio||1;cv.width=r.width*d;cv.height=r.height*d;draw()}
+function bbox(p){if(p.k==='T')return[p.x,p.y,p.x+p.w,p.y+p.h];if(p.k==='E'){const e=p.e,r=Math.max(e[0],e[1]);return[e[3]-r,e[4]-r,e[3]+r,e[4]+r]}
+ let a=1/0,b=1/0,c=-1/0,e=-1/0;for(let i=0;i<p.p.length;i+=2){const x=p.p[i],y=p.p[i+1];if(x<a)a=x;if(x>c)c=x;if(y<b)b=y;if(y>e)e=y}return[a,b,c,e]}
+function fit(){let a=1/0,b=1/0,c=-1/0,e=-1/0;for(const p of M.prims)if(p.k!=='T'&&vis.has(p.lv)){const q=p.b;a=Math.min(a,q[0]);b=Math.min(b,q[1]);c=Math.max(c,q[2]);e=Math.max(e,q[3])}
+ if(a===1/0)return;V.cx=(a+c)/2;V.cy=(b+e)/2;V.s=Math.min(cv.width/(c-a||1),cv.height/(e-b||1))*.95;draw()}
+function draw(){raf=0;const W=cv.width,H=cv.height;ctx.fillStyle='#000';ggOn?ctx.clearRect(0,0,W,H):ctx.fillRect(0,0,W,H);if(!M)return;
+ const{cx,cy,s}=V,X=x=>(x-cx)*s+W/2,Y=y=>H/2-(y-cy)*s,x0=cx-W/2/s,x1=cx+W/2/s,y0=cy-H/2/s,y1=cy+H/2/s;
+ if(ggOn&&gm){const c=toLL(V.cx,V.cy),z=Math.max(1,Math.min(21,Math.log2(156543.03*Math.cos(c[0]*RAD)*V.s/d*1000)));gm.__w=z;gm.moveCamera({center:{lat:c[0],lng:c[1]},zoom:z})}else if(satOn)tiles(X,Y,x0,x1,y0,y1);
+ ctx.lineJoin='round';let ld='';
+ for(const p of M.prims){if(!vis.has(p.lv))continue;const q=p.b;if(q[2]<x0||q[0]>x1||q[3]<y0||q[1]>y1)continue;
+  if(p.k==='T'){const fs=p.h*s*1.25;if(fs<5)continue;ctx.save();ctx.translate(X(p.x),Y(p.y));ctx.rotate(-p.r);ctx.fillStyle=col(p.c);ctx.font=fs+'px Arial,sans-serif';ctx.fillText(p.s,0,0);ctx.restore();continue}
+  ctx.strokeStyle=col(p.c);ctx.lineWidth=(.8+Math.min(p.w,5)*.35)*d;const dk=p.st>0&&p.st<8?p.st:0;if(dk+''!==ld){ctx.setLineDash(DASH[dk].map(v=>v*d));ld=dk+''}
+  ctx.beginPath();
+  if(p.k==='E'){const e=p.e;ctx.ellipse(X(e[3]),Y(e[4]),Math.max(e[0]*s,.5),Math.max(e[1]*s,.5),-e[2],0,7)}
+  else{const a=p.p;ctx.moveTo(X(a[0]),Y(a[1]));for(let i=2;i<a.length;i+=2)ctx.lineTo(X(a[i]),Y(a[i+1]));if(p.k==='S')ctx.closePath()}
+  ctx.stroke()}
+ ctx.setLineDash([]);if(satOn&&!ggOn){ctx.fillStyle='#fff';ctx.font=11*d+'px sans-serif';ctx.fillText('Ảnh: Esri World Imagery (ước lượng WGS84, lệch vài mét so với VN-2000)',6*d,H-6*d)}
+ if(gp){const gx=X(gp.x),gy=Y(gp.y);ctx.fillStyle='rgba(30,120,255,.18)';ctx.beginPath();ctx.arc(gx,gy,Math.max(9*d,gp.acc*1000*s),0,7);ctx.fill();ctx.fillStyle='#1e78ff';ctx.strokeStyle='#fff';ctx.lineWidth=2*d;ctx.beginPath();ctx.arc(gx,gy,7*d,0,7);ctx.fill();ctx.stroke()}
+ if(pin){const px=X(pin.x),py=Y(pin.y),r=11*d;ctx.fillStyle='#e53935';ctx.strokeStyle='#fff';ctx.lineWidth=2*d;ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(px-r*.8,py-r*2);ctx.arc(px,py-r*2.4,r,Math.PI*.8,Math.PI*.2);ctx.closePath();ctx.fill();ctx.stroke();ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(px,py-r*2.4,r*.4,0,7);ctx.fill()}
+ if(snapOn){if(snapPrev)snapMark(snapPrev.x,snapPrev.y,'#ffd600',true);if(pin&&pin.sn)snapMark(pin.x,pin.y,'#00e676',false)}
+ if(mark){ctx.strokeStyle='#ff3b30';ctx.lineWidth=3*d;ctx.beginPath();ctx.arc(X(mark.x),Y(mark.y),20*d,0,7);ctx.stroke()}}
+const redraw=()=>{if(!raf)raf=requestAnimationFrame(draw)};
+function zoomAt(px,py,f){const{s,cx,cy}=V,H=cv.height,W=cv.width,wx=(px-W/2)/s+cx,wy=cy+(H/2-py)/s;V.s=s*f;V.cx=wx-(px-W/2)/V.s;V.cy=wy-(H/2-py)/V.s;redraw()}
+function useModel(id){M=R.models[id];loadCal();buildParcels();pal=R.pal;const lc={},cc={};
+ for(const p of M.prims){p.b=bbox(p);lc[p.lv]=(lc[p.lv]||0)+1;(cc[p.lv]??={})[p.c]=(cc[p.lv][p.c]||0)+1}
+ vis=new Set(Object.keys(lc).map(Number));mark=null;$('hint').style.display='none';SN=null;snapPrev=null;if(snapOn)SN=buildSnap(M.prims);
+ $('lv').innerHTML='<div style="display:flex;gap:6px;margin-bottom:6px"><button id="la">Tất cả</button><button id="ln">Bỏ hết</button></div>'+Object.keys(lc).map(Number).sort((a,b)=>a-b).map(l=>{
+  const top=Object.entries(cc[l]).sort((a,b)=>b[1]-a[1])[0][0];return`<label><input type="checkbox" data-l="${l}" checked><i style="background:${col(+top)}"></i>Lớp ${l} <small>(${lc[l]})</small></label>`}).join('');
+ $('la').onclick=()=>tog(true);$('ln').onclick=()=>tog(false);
+ $('lv').onchange=e=>{const l=+e.target.dataset.l;e.target.checked?vis.add(l):vis.delete(l);draw()};
+ const un=Object.entries(M.un).map(([t,n])=>`loại ${t}×${n}`).join(', ');
+ st(`${M.prims.length} đối tượng · ${Object.keys(lc).length} lớp`+(un?` · chưa vẽ: ${un}`:''));fit()}
+function tog(on){vis=new Set(on?Object.keys(M.prims.reduce((o,p)=>(o[p.lv]=1,o),{})).map(Number):[]);document.querySelectorAll('#lv input').forEach(i=>i.checked=on);draw()}
+async function load(file){await licReady;if(!licOK&&file.size>=TRIAL){st('Bản dùng thử chỉ mở file dưới 1 MB. Cần kích hoạt để mở file này.');openLic('File '+(file.size/1e6).toFixed(1)+' MB vượt giới hạn dùng thử.');return}await loadBuf(file.name,new Uint8Array(await file.arrayBuffer()),true)}
+async function loadBuf(name,u8,save){await licReady;if(!licOK&&u8.length>=TRIAL){st('Bản dùng thử chỉ mở file dưới 1 MB. Cần kích hoạt để mở file này.');openLic('File '+(u8.length/1e6).toFixed(1)+' MB vượt giới hạn dùng thử.');return}fname=name;st('Đang đọc '+name+' …');await new Promise(r=>setTimeout(r,30));
+ try{R=await parseDGN(u8)}catch(e){st('Lỗi: '+e.message);return}
+ const ids=Object.keys(R.models).sort((a,b)=>R.models[b].prims.length-R.models[a].prims.length);
+ if(!ids.length){st('Không tìm thấy dữ liệu đồ họa trong file');return}
+ const s=$('md');s.innerHTML=ids.map(i=>`<option value="${i}">Model ${i} (${R.models[i].prims.length})</option>`).join('');s.hidden=ids.length<2;s.onchange=()=>useModel(s.value);useModel(ids[0]);if(save){dbPut(name,u8.slice()).catch(()=>{});try{localStorage.setItem('last',name)}catch(e){}}}
+$('f').onchange=e=>e.target.files[0]&&load(e.target.files[0]);
+document.body.ondragover=e=>e.preventDefault();document.body.ondrop=e=>{e.preventDefault();e.dataTransfer.files[0]&&load(e.dataTransfer.files[0])};
+$('fit').onclick=()=>M&&fit();$('lb').onclick=()=>{const l=$('lv');l.style.display=l.style.display==='block'?'none':'block'};
+$('q').onkeydown=e=>{if(e.key!=='Enter'||!M)return;const k=e.target.value.trim().toLowerCase();if(!k)return;
+ if(e.target.dataset.k!==k){e.target.dataset.k=k;hits=M.prims.filter(p=>p.k==='T'&&p.s.toLowerCase().includes(k));hi=0}else hi=(hi+1)%(hits.length||1);
+ if(!hits.length){mark=null;st('Không tìm thấy “'+k+'”');draw();return}
+ const p=hits[hi];mark=p;vis.add(p.lv);const cb=document.querySelector(`#lv input[data-l="${p.lv}"]`);if(cb)cb.checked=true;
+ V.cx=p.x+p.w/2;V.cy=p.y;V.s=Math.max(V.s,60*d/(p.h*1.25));setPin({x:p.x+p.w/2,y:p.y+p.h/2});st(`Kết quả ${hi+1}/${hits.length}: “${p.s}” — Enter để xem kết quả tiếp`);draw()};
+// pan / zoom / pinch
+const P=new Map();let pd=0;
+let dn=null;cv.onpointerdown=e=>{dn=[e.clientX,e.clientY,Date.now(),P.size];cv.setPointerCapture(e.pointerId);P.set(e.pointerId,[e.clientX,e.clientY]);pd=0};
+cv.onpointerup=cv.onpointercancel=e=>{if(e.type==='pointerup'&&(pinMode||alMode||snapOn)&&M&&dn&&!dn[3]&&Math.hypot(e.clientX-dn[0],e.clientY-dn[1])<6&&Date.now()-dn[2]<600){const r=cv.getBoundingClientRect(),px=(e.clientX-r.left)*d,py=(e.clientY-r.top)*d;tapAt(px,py)}P.delete(e.pointerId);pd=0};
+cv.onpointermove=e=>{const r=cv.getBoundingClientRect(),px=(e.clientX-r.left)*d,py=(e.clientY-r.top)*d;
+ if(snapOn&&SN&&M&&e.pointerType==='mouse'&&!P.size&&alMode!==2){const h=snapFind((px-cv.width/2)/V.s+V.cx,V.cy+(cv.height/2-py)/V.s,SNAP_PX*d/V.s);if((h?h.i:-1)!==(snapPrev?snapPrev.i:-1)){snapPrev=h;redraw()}}
+ if(M){const x=(px-cv.width/2)/V.s+V.cx,y=V.cy+(cv.height/2-py)/V.s,o=M.org;
+  if(!P.size)$('st').dataset.c=`X(Bắc)=${((y-o[1])/1000).toFixed(2)}  Y(Đông)=${((x-o[0])/1000).toFixed(2)}`,$('st').textContent=$('st').dataset.c}
+ if(!P.has(e.pointerId))return;const o=P.get(e.pointerId);
+ if(P.size===1){V.cx-=(e.clientX-o[0])*d/V.s;V.cy+=(e.clientY-o[1])*d/V.s;P.set(e.pointerId,[e.clientX,e.clientY]);redraw()}
+ else if(P.size===2){P.set(e.pointerId,[e.clientX,e.clientY]);const[a,b]=[...P.values()],n=Math.hypot(a[0]-b[0],a[1]-b[1]);if(pd)zoomAt(((a[0]+b[0])/2-r.left)*d,((a[1]+b[1])/2-r.top)*d,n/pd);pd=n}};
+cv.onwheel=e=>{e.preventDefault();const r=cv.getBoundingClientRect();zoomAt((e.clientX-r.left)*d,(e.clientY-r.top)*d,Math.exp(-e.deltaY*.0015))};
+$('mz').onchange=()=>draw();$('mn').onclick=()=>{const a=$('adv');a.style.display=a.style.display==='flex'?'none':'flex';size()};
+$('lib').onclick=async()=>{const l=$('ll');if(l.style.display==='block'){l.style.display='none';return}
+ let ks=[];try{ks=await dbKeys()}catch(e){}
+ l.innerHTML='<b>Thư viện bản đồ (lưu trên máy này)</b>'+(ks.length?ks.map((k,i)=>`<div class="lr"><span>${esc(k)}</span><button data-o="${i}">Mở</button><button data-d="${i}">Xóa</button></div>`).join(''):'<p>Chưa có bản đồ nào. Bấm “Mở” để chọn file .dgn.</p>');
+ l.onclick=async e=>{const o=e.target.dataset.o,x=e.target.dataset.d;if(o!=null){l.style.display='none';try{localStorage.setItem('last',ks[o])}catch(z){}await loadBuf(ks[o],new Uint8Array(await dbGet(ks[o])),false)}else if(x!=null){await dbDel(ks[x]);try{if(localStorage.getItem('last')===ks[x])localStorage.removeItem('last')}catch(z){}$('lib').onclick();$('lib').onclick()}};l.style.display='block'};
+$('gps').onclick=()=>{if(gw!=null){navigator.geolocation.clearWatch(gw);gw=null;gp=null;gpf=0;$('gps').classList.remove('on');draw();return}
+ if(!M){st('Hãy mở bản đồ trước');return}if(!navigator.geolocation){st('Thiết bị không hỗ trợ định vị');return}
+ gw=navigator.geolocation.watchPosition(p=>{const u=fromLL(p.coords.latitude,p.coords.longitude);gp={x:u[0],y:u[1],acc:p.coords.accuracy};
+  if(!gpf){gpf=1;const km=Math.hypot(u[0]-V.cx,u[1]-V.cy)/1e6;if(km<3){V.cx=u[0];V.cy=u[1];V.s=Math.max(V.s,.0015*d)}else st(`Bạn cách bản đồ khoảng ${km.toFixed(1)} km`)}
+  draw()},e=>st('Không lấy được vị trí: '+e.message+(location.protocol==='https:'?'':' (định vị cần mở bằng HTTPS)')),{enableHighAccuracy:true,maximumAge:2000});$('gps').classList.add('on')};
+addEventListener('resize',size);size();
+(async()=>{try{const n=localStorage.getItem('last');if(n){const b=await dbGet(n);if(b)await loadBuf(n,new Uint8Array(b),false)}}catch(e){}})();
+if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script></body></html>
